@@ -1,0 +1,62 @@
+"0","duomenys_pilni %>%
+  select(SIRGO_AR_PIRMINE, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(SIRGO_AR_PIRMINE) %>%
+  summarise(
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == ""TAIP""),
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE')
+  ) %>%
+  select(RASTA, NERASTA) %>%
+  fisher.test()
+"
+"1","
+"
+"1","	Fisher's Exact Test for Count Data"
+"1","
+"
+"1","
+"
+"1","data:  "
+"1",""
+"1","."
+"1",""
+"1","
+"
+"1","p-value = 1"
+"1","
+"
+"1","alternative hypothesis: "
+"1","true "
+"1",""
+"1","odds ratio"
+"1",""
+"1"," is "
+"1",""
+"1","not equal to"
+"1",""
+"1"," "
+"1",""
+"1","1"
+"1",""
+"1","
+"
+"1","95"
+"1",""
+"1"," percent confidence interval:
+"
+"1",""
+"1"," "
+"1",""
+"1"," 0.01241582 80.54243678"
+"1",""
+"1","
+"
+"1","sample estimates:
+"
+"1","odds ratio "
+"1","
+"
+"1","         1 "
+"1","
+"
+"1","
+"

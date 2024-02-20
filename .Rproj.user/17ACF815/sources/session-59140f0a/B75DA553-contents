@@ -1,0 +1,1153 @@
+---
+title: "My document"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+```{r message = FALSE, warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(readxl)
+library(gmodels)
+library(rstatix)
+library(RVAideMemoire)
+library(EnvStats)
+library(ggpubr)
+library(RColorBrewer)
+```
+
+```{r message = FALSE, warning=FALSE, echo=FALSE}
+theme_set(theme_bw()+
+            theme(panel.grid = element_blank()))
+my_palette <- c('#257a9e','#60b3e4','#1c5673','#cee0e8')
+```
+
+```{r message = FALSE, warning=FALSE, echo=FALSE}
+#Import data
+duomenys <- read_excel("C:/Coding/studentai/Tomas/duomenys.xlsx")
+View(duomenys)
+```
+
+## Apžvalga
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+duomenys %>%
+  select(AMZIUS) %>%
+  ggplot(aes(x=AMZIUS))+
+  geom_histogram(binwidth = 1)+
+  labs(title = 'Pacienčių amžiaus pasiskirstymas',
+       x = NULL,
+       y = NULL)+
+  scale_y_continuous(limits = c(0, 6), expand = c(0, 0))+
+  geom_vline(aes(xintercept=mean(AMZIUS)),
+            color="#60b3e4", linetype="dashed", size=1)+
+  geom_text(aes(x=52, y=5.6, label = paste('Vidurkis: ', round(mean(AMZIUS), digits = 2))))+
+  theme_bw()
+  
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+duomenys %>%
+  select(MUTACIJA) %>%
+  group_by(MUTACIJA) %>%
+  summarise(
+    n = n()
+  ) %>%
+  ggplot(aes(x='', y=n, fill = MUTACIJA))+
+  geom_bar(stat='identity', width = 1)+
+  coord_polar('y')+
+  theme_void()+
+  labs(title = 'Mutacijų proporcijos',
+       fill = NULL)+
+  scale_fill_manual(values=my_palette)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+duomenys %>%
+  select(SIRGO_AR_PIRMINE) %>%
+  group_by(SIRGO_AR_PIRMINE) %>%
+  summarise(
+    n = n()
+  ) %>%
+  ggplot(aes(x='', y=n, fill = SIRGO_AR_PIRMINE))+
+  geom_bar(stat='identity', width = 1)+
+  coord_polar('y')+
+  theme_void()+
+  labs(title = 'Sirgo ar Pirminė',
+       fill = NULL)+
+  scale_fill_manual(values=my_palette)
+```
+
+## 1. NAVIKŲ APTIKIMO DAŽNIS PAŠALINTUOSE AUDINIUOSE, PRIKLAUSOMAI NUO TO AR BUVO PASIRINKTA DVIEJŲ OPERACIJŲ METODIKA, AR VIENMOMENTINĖ METODIKA.
+
+```{r message = FALSE, warning=FALSE, echo=FALSE}
+cancer_incidence <- duomenys %>%
+  select(HISTOLOGIJA_PO_I_ETAPO, HISTOLOGIJA_PO_II_ETAPO, VIENU_ETAPU_OPERUOJANT_HISTOLOGIJOS_ATSAKYMAS) %>%
+  gather(column, value, na.rm = T) %>%
+  group_by(column) %>%
+  summarise(
+    NERASTA = sum(value == 'n.y.'),
+    RASTA = sum(value != 'n.y.')
+  )
+```
+
+Count Table:
+
+```{r echo = FALSE}
+type_cancer <- duomenys %>%
+  filter(VIENU_AR_DVIEM_ETAPAIS!='DVIETAPE_suplanuota') %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(VIENU_AR_DVIEM_ETAPAIS) %>%
+  summarize(
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE')
+  )
+type_cancer
+```
+
+Fisherio exact rezultatai:
+
+```{r echo = FALSE}
+fisher.test(type_cancer[2:3])
+```
+
+Grafikas:
+
+```{r echo = FALSE, messages=FALSE, warnings=FALSE}
+options(repr.plot.width = 3, repr.plot.height =3) 
+duomenys %>%
+  select(HISTOLOGIJA_PO_I_ETAPO, HISTOLOGIJA_PO_II_ETAPO, VIENU_ETAPU_OPERUOJANT_HISTOLOGIJOS_ATSAKYMAS) %>%
+  gather(column, value, na.rm = T) %>%
+  group_by(column) %>%
+  summarise(
+    RASTA = sum(value != 'n.y.'),
+    NERASTA = sum(value == 'n.y.')
+  ) %>%
+  pivot_longer(cols = -column, names_to = 'Stage', values_to = 'Diagnosis') %>%
+  ggplot(aes(column, Diagnosis, fill=Stage))+
+  geom_bar(stat='identity', position = position_stack(reverse = TRUE))+
+  labs(title='Histologiškai patvirtinti navikai po operacinių etapų.',
+       x=NULL,
+       y=NULL,
+       fill = NULL)+
+  scale_x_discrete(labels = c('Po I etapo',
+                             'Po II etapo',
+                             'Po vienmomentės\noperacijos'))+
+  # scale_fill_discrete(labels=c('Nersta', 'Rasta'))+
+  scale_fill_manual(values=my_palette, breaks = c('RASTA', 'NERASTA'), labels=c('Rasta', 'Nerasta'))
+  #ggsave(file="pavyzdys.pdf", width=4, height=4, dpi=300)
+
+  
+```
+
+Fisher's exact test rezultatai P\>0.99. Pagalvojau, kad gali rasyti taip: 'Remiantis turimais duomenimis, skirtumo tarp operacijos tipu nerasta.' BET paminek grupiu dydzius ir patarciau uzsiminti, kad butu gerai tureti daugiau atveju.
+
+## 2. NAVIKŲ APTIKIMO DAŽNIS PAŠALINTUOSE AUDINIUOSE, PRIKLAUSOMAI NUO TO AR TIRIAMASIS LIGOS ISTORIJOJE JAU TURĖJO KRŪTŲ ONKOLOGINĮ SUSIRGIMĄ, AR NE.
+
+Count table:
+
+```{r echo =FALSE}
+duomenys_pilni <- duomenys %>%
+  filter(AR_BUVO_NUSTATYTAS_VEZYS != 'x')
+
+count_table <- duomenys_pilni %>%
+  select(SIRGO_AR_PIRMINE, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  table()
+count_table
+
+plot_box <- as.data.frame(count_table) %>%
+  ggplot(aes(SIRGO_AR_PIRMINE, Freq, fill=AR_BUVO_NUSTATYTAS_VEZYS))+
+  geom_bar(stat='identity', position = position_stack(reverse = TRUE))+
+  labs(title = 'Naviko aptikimo atvejai pagal ligos istoriją',
+       y=NULL,
+       x=NULL,
+       fill=NULL,
+       )+
+  scale_x_discrete(labels = c('Pirminis\nsusirgimas',
+                       'Pasikartojęs\nsusirgimas'))+
+  scale_fill_manual(values=my_palette, breaks = c('TAIP', 'NE'), labels=c('Rasta', 'Nerasta'))
+plot_box
+```
+
+Fisherio Testas:
+
+```{r echo=FALSE}
+duomenys_pilni %>%
+  select(SIRGO_AR_PIRMINE, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(SIRGO_AR_PIRMINE) %>%
+  summarise(
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE')
+  ) %>%
+  select(RASTA, NERASTA) %>%
+  fisher.test()
+```
+
+Atmečiau nepabaigtų operacijų atvejus.
+
+## 3. NAVIKŲ APTIKIMO DAŽNIS PAŠALINTUOSE AUDINIUOSE, PRIKLAUSOMAI NUO TO, KOKIA MUTACIJA BUVO NUSTATYTA TIRIAMAJAM.
+
+Count Table:
+
+```{r echo =FALSE}
+duomenys_pilni %>%
+  select(MUTACIJA, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(MUTACIJA) %>%
+  summarise(
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE'),
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    RASTA_PROC = RASTA/(RASTA + NERASTA) * 100
+  )
+```
+
+Fisherio testas:
+
+```{r echo=FALSE}
+duomenys_pilni %>%
+  select(MUTACIJA, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(MUTACIJA) %>%
+  summarise(
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE'),
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    RASTA_PROC = RASTA/(RASTA + NERASTA) * 100
+  ) %>%
+  select(RASTA, NERASTA) %>%
+  fisher.test()
+```
+
+```{r echo=FALSE, message=FALSE, output = FALSE}
+
+# TESTAI ATSKIRAI
+
+duomenys_pilni %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, MUTACIJA, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  filter(MUTACIJA == 'BRCA1') %>%
+  group_by(VIENU_AR_DVIEM_ETAPAIS) %>%
+  summarise(
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE')
+  )
+```
+
+```{r echo=FALSE, message=FALSE, output = FALSE}
+duomenys_pilni %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, MUTACIJA, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  filter(MUTACIJA == 'BRCA1') %>%
+  group_by(VIENU_AR_DVIEM_ETAPAIS) %>%
+  summarise(
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE')
+  ) %>%
+  select(RASTA, NERASTA) %>%
+  fisher.test()
+```
+
+```{r echo=FALSE, message=FALSE, output = FALSE}
+df.t <- duomenys_pilni %>%
+  select(MUTACIJA,VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(MUTACIJA, VIENU_AR_DVIEM_ETAPAIS) %>%
+  summarise(
+    RASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == "TAIP"),
+    NERASTA = sum(AR_BUVO_NUSTATYTAS_VEZYS == 'NE'),
+    .groups = 'keep'
+  ) %>%
+  pivot_wider(everything(), names_from = c(VIENU_AR_DVIEM_ETAPAIS), values_from = c(RASTA, NERASTA)) %>%
+  as.data.frame()
+
+rownames(df.t) <- df.t[, 1]
+df.t <- df.t[, -1]
+df.t[is.na(df.t)] <- 0
+df.t
+```
+
+Fisherio exact testu rezultatai
+
+```{r echo=FALSE, message=FALSE, output = FALSE}
+apply(df.t, 1, function(x) fisher.test(matrix(as.numeric(x[1:4]), ncol=2,byrow=T)))
+```
+
+## 4. NAVIKŲ APTIKIMO DAŽNIS PAŠALINTUOSE AUDINIUOSE, PRIKLAUSOMAI NUO TIRIAMOJO AMŽIAUS.
+
+Kaip ir kalbejome, nera pakankamai pacientu su aptiktu veziu, kad apskaičiuoti standartini nuokrypi, todel palyginti vidurkiu (t-test) negalime
+
+```{r echo=FALSE}
+
+duomenys_pilni %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, AMZIUS, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  group_by(AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  summarise(
+    mean = mean(AMZIUS),
+    SN = sd(AMZIUS),
+    sample_size = n()
+  )
+```
+
+```{r}
+duomenys_pilni %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, AMZIUS, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  t_test(AMZIUS~AR_BUVO_NUSTATYTAS_VEZYS)
+```
+
+## 5. NAVIKŲ APTIKIMO DAŽNIS, PRIKLAUSOMAI NUO LAIKO, PRAĖJUSIO TARP PIRMOS KONSULTACIJOS IR PROFILAKTINĖS MASTEKTOMIJOS.
+
+Oepraciju trukmes vidurkis, sn ir sample size
+
+```{r echo=FALSE}
+duomenys_pilni %>%
+  mutate(laikas_perdu = `LAIKAS_NUO_PIRMOS_KONSL._IKI_OPERACIJOS_I_ETAPO,_DIENOMIS` + `LAIKAS_TARP_I_IR_II_ETAPU,_DIENOS`) %>%
+  select(laikas_perdu, `LAIKAS_TARP_KONSULTACIJOS_IR_OPERACIJOS,_DIENOS`, VIENU_AR_DVIEM_ETAPAIS) %>%
+  pivot_longer(cols = -VIENU_AR_DVIEM_ETAPAIS, values_to = 'Laikas') %>%
+  na.omit() %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, Laikas) %>%
+  group_by(VIENU_AR_DVIEM_ETAPAIS) %>%
+  summarise(
+    vid.laikas = mean(Laikas),
+    sn.laikas = sd(Laikas),
+    sample.size = n()
+  )
+```
+
+Welch t-testo rezultatai:
+
+```{r echo = FALSE}
+duomenys_pilni %>%
+  mutate(laikas_perdu = `LAIKAS_NUO_PIRMOS_KONSL._IKI_OPERACIJOS_I_ETAPO,_DIENOMIS` + `LAIKAS_TARP_I_IR_II_ETAPU,_DIENOS`) %>%
+  select(laikas_perdu, `LAIKAS_TARP_KONSULTACIJOS_IR_OPERACIJOS,_DIENOS`, VIENU_AR_DVIEM_ETAPAIS) %>%
+  pivot_longer(cols = -VIENU_AR_DVIEM_ETAPAIS, values_to = 'Laikas') %>%
+  na.omit() %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, Laikas) %>%
+  t.test(Laikas ~ VIENU_AR_DVIEM_ETAPAIS, data = ., var.equal=FALSE)
+```
+
+Skiriasi.
+
+Patikrinti, ar laikas ir vezio nustatyms susije, negalime, nes neturime vidurkiu (tik po viena reiksme) kaip ir praeitame atvejyje. Zemiau lentele su duomenimis.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+duomenys_pilni %>%
+  mutate(laikas_perdu = `LAIKAS_NUO_PIRMOS_KONSL._IKI_OPERACIJOS_I_ETAPO,_DIENOMIS` + `LAIKAS_TARP_I_IR_II_ETAPU,_DIENOS`) %>%
+  select(laikas_perdu, `LAIKAS_TARP_KONSULTACIJOS_IR_OPERACIJOS,_DIENOS`, VIENU_AR_DVIEM_ETAPAIS, VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  pivot_longer(cols = -c(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_NUSTATYTAS_VEZYS), values_to = 'Laikas') %>%
+  na.omit() %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_NUSTATYTAS_VEZYS, Laikas) %>%
+  group_by(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_NUSTATYTAS_VEZYS) %>%
+  summarise(
+    vid.laikas = mean(Laikas),
+    sn.laikas = sd(Laikas),
+    sample.size = n()
+  )
+```
+
+## 6. NAVIKŲ APTIKIMO DAŽNIS, PRIKLAUSOMAI NUO LAIKO, PRAĖJUSIO TARP PIRMO IR ANTRO OPERACIJŲ, ATLIEKANT PROFILAKTINĘ MASTEKTOMIJĄ SU KRŪTŲ PAKĖLIMU.
+
+Vėl tik viena reikšmė, todėl vidurkio negausime.
+
+## 7. NUSTATYTI IR PALYGINTI KOMPLIKACIJŲ DAŽNĮ, PRIKLAUSOMAI NUO TO AR PROFILAKTINĖ MASTEKTOMIJA ATLIKTA VIENMOMENTIŠKAI, AR DVIEM ETAPAIS.
+
+Count Table:
+
+```{r echo=FALSE, message=FALSE}
+
+duomenys_pilni %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  freq_table(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA)
+
+```
+
+Fisherio exact testas:
+
+```{r echo=FALSE}
+duomenys_pilni %>%
+  select(VIENU_AR_DVIEM_ETAPAIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  table() %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE)
+```
+
+Kaip matai Fisher's exact P\>0.99 taigi su skirtumo neradome.
+
+## 8. PALYGINTI KOMPLIKACIJŲ DAŽNĮ, PRIKLAUSOMAI NUO TO AR PACIENTĖ JAU TURĖJO ONKOLOGINĮ SUSIRGIMĄ ANAMNEZĖJE AR NE.
+
+```{r echo=FALSE}
+
+duomenys_pilni %>%
+  select(SIRGO_AR_PIRMINE, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  table() %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE)
+```
+
+Kaip matai identiška situacija, P value \>0,99
+
+## 9. PALYGINTI KOMPLIKACIJŲ DAŽNĮ, PRIKLAUSOMAI NUO PACIENTĖS AMŽIAUS.
+
+Summary stats:
+
+```{r echo=FALSE}
+
+duomenys_pilni %>%
+  select(AMZIUS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  group_by(AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  summarise(
+    amzius.vid = mean(AMZIUS),
+    amzius.sn = sd(AMZIUS),
+    amzius.size = n(),
+  )
+
+```
+
+T_testas:
+
+```{r echo=FALSE}
+
+duomenys_pilni %>%
+  select(AR_BUVO_APSKRITAI_KOMPLIKACIJA, AMZIUS) %>%
+  t.test(AMZIUS ~ AR_BUVO_APSKRITAI_KOMPLIKACIJA, data = ., var.equal=TRUE)
+
+```
+
+P=0.73 pagal turimus duomenis statistiskai reiksmingo skirtumo neradome
+
+## 10. PALYGINTI KOMPLIKACIJŲ DAŽNĮ, GRUPĖJE KUR ATLIKTA PARUOŠIAMOJI OPERACIJA (DVIEM ETAPAIS), PRIKLAUSOMAI NUO TAIKYTO REKONSTRUKCIJOS METODO.
+
+```{r echo=FALSE, message = FALSE, output = FALSE}
+duomenys_pilni %>%
+  select(Komplikacija = AR_BUVO_APSKRITAI_KOMPLIKACIJA, Tipas = II_ETAPO_REKONSTRUKCIJOS_TIPAS_) %>%
+  table()
+```
+
+Count Table ir Fisherio Testas:
+
+```{r echo = F}
+duomenys_pilni %>%
+  select(Komplikacija = AR_BUVO_APSKRITAI_KOMPLIKACIJA, Tipas = II_ETAPO_REKONSTRUKCIJOS_TIPAS_) %>%
+  na.omit() %>%
+  table() %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE)
+```
+
+Fisherio testai poromis:
+
+```{r echo = FALSE}
+df.t <- duomenys_pilni %>%
+  select(II_ETAPO_REKONSTRUKCIJOS_TIPAS_, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  group_by(II_ETAPO_REKONSTRUKCIJOS_TIPAS_) %>%
+  summarise(
+    RASTA = sum(AR_BUVO_APSKRITAI_KOMPLIKACIJA == "TAIP"),
+    NERASTA = sum(AR_BUVO_APSKRITAI_KOMPLIKACIJA == 'NE'),
+  ) %>%
+  na.omit() %>%
+  as.data.frame()
+
+rownames(df.t) <- df.t[, 1]
+df.t <- df.t[, -1]
+
+fisher.multcomp(as.matrix(df.t))
+```
+
+Kaip matome niekur skirtumo neradome, BET samples labai mazi.
+
+## 11. PALYGINTI AR PANAUDOTŲ IMPLANTŲ TŪRIS TURĖJO ĮTAKOS KOMPLIKACIJŲ DAŽNIUI?
+
+Summary Stats:
+
+```{r echo =FALSE, message = FALSE}
+imp_komp <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  group_by(AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  summarise(
+    implantu_turis = mean(Turis),
+    implantu_sn = sd(Turis),
+    implantu_sample = n()
+  )
+imp_komp
+
+
+```
+
+t_testas
+
+```{r echo=FALSE}
+stat.test <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  t_test(Turis~AR_BUVO_APSKRITAI_KOMPLIKACIJA)
+stat.test
+
+```
+
+```{r echo=FALSE, output=FALSE}
+sample_size <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  group_by(AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  tally()
+sample_size
+```
+
+Visualizacija
+
+```{r echo=FALSE}
+bxp <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  select(AR_BUVO_APSKRITAI_KOMPLIKACIJA, Turis) %>%
+  group_by(AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  ggboxplot(x = "AR_BUVO_APSKRITAI_KOMPLIKACIJA", y = "Turis", fill='#60b3e4')+
+  labs(title='Komplikacijų priklausomybė nuo naudotų implantų tūrio',
+     x=NULL,
+     y='Tūris, cc')+
+  scale_x_discrete(labels = c('Komplikacijos buvo',
+                         'Komplikacijos nebuvo'))+
+  theme_classic()+
+  scale_y_continuous(limits = c(100, 700), expand = c(0, 0))+
+  geom_text(data = sample_size,
+           aes(y=150, label = paste('n=', n), vjust = 1))
+
+stat.test <- stat.test %>%
+  add_xy_position(x='AR_BUVO_APSKRITAI_KOMPLIKACIJA', dodge=0.5) %>%
+  mutate(y.position=600)
+
+bxp + stat_pvalue_manual(
+  stat.test, label='p', tip.length = 0)
+```
+
+Isskaidyta pagal grupes:
+
+```{r echo = FALSE, output=FALSE}
+stat.test <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  group_by(Operacija) %>%
+  wilcox_test(Turis~AR_BUVO_APSKRITAI_KOMPLIKACIJA)
+stat.test
+```
+
+```{r echo=FALSE, output=FALSE}
+sample_size <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  group_by(Operacija, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  tally()
+```
+
+```{r echo=FALSE}
+bxp <- duomenys_pilni %>%
+  select(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, AR_BUVO_APSKRITAI_KOMPLIKACIJA) %>%
+  pivot_longer(cols = c(II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS), values_to = 'Turis', names_to = 'Operacija') %>%
+  na.omit() %>%
+  group_by(Operacija) %>%
+  ggboxplot(x = "Operacija", y = "Turis", 
+  fill = "AR_BUVO_APSKRITAI_KOMPLIKACIJA", palette = my_palette
+  )+
+  labs(title='Vidutinis implantų tūris ir komplikacijos',
+     x=NULL,
+     y='Tūris, cc',
+     fill = 'Komplikacija')+
+  scale_x_discrete(labels = c('Su paruošiamąja\noperacija',
+                           'Vienmomentinė\noperacija.'))+
+  theme_classic()+
+  scale_y_continuous(limits = c(100, 700), expand = c(0, 0))+
+  geom_text(data = sample_size,
+            aes(y=150, label = paste('n=', n), vjust = 1),
+            position = position_dodge2(0.9))
+  # geom_text(data = sample_size,
+  #           aes(Operacija,Inf, label = paste("n=", n)), 
+  #             position = position_dodge(.9))+
+
+
+stat.test <- stat.test %>%
+  add_xy_position(x='Operacija', dodge=0.8)
+
+bxp + stat_pvalue_manual(
+  stat.test, label='p', tip.length = 0)
+
+```
+
+```{r echo=FALSE}
+# imp_komp %>%
+#   ggplot(aes(Operacija, implantu_turis, fill=as.factor(AR_BUVO_APSKRITAI_KOMPLIKACIJA)))+
+#   geom_bar(stat='identity', position='dodge', alpha=0.7)+
+#   labs(title='Vidutinis implantų turis ir komplikacijos',
+#        x=NULL,
+#        y='Turis, cc',
+#        fill = 'Komplikacija')+
+#   scale_x_discrete(labels = c('Dviejų et.',
+#                            'Vieno et.'))+
+#   geom_errorbar(aes(ymin=implantu_turis-implantu_sn, ymax=implantu_turis+implantu_sn), width=.2, position=position_dodge(.9))+
+#   theme_classic()+
+#   geom_text(aes(y=50, label = paste("n=", implantu_sample)), 
+#                 position = position_dodge(.9))+
+#   scale_fill_brewer(palette = "Pastel1")+
+#   scale_y_continuous(limits = c(0, 550), expand = c(0, 0))
+# 
+#   
+```
+
+### 
+
+## 12. PALYGINTI AR TINKLELIO PANAUDOJIMAS TURĖJO ĮTAKOS KOMPLIKACIJŲ DAŽNIUI.
+
+```{r echo=FALSE}
+
+count_table <- duomenys_pilni %>%
+  select(Komplikacija = AR_BUVO_APSKRITAI_KOMPLIKACIJA, 
+         T_II = AR_NAUDOTAS_TINKLELIS_II_ETAPO_METU,
+         T_I = AR_NAUDOTAS_TINKLELIS_OPERUOJANT_VIENU_ETAPU) %>%
+  pivot_longer(cols = c(T_I, T_II), values_to = 'Tinklelis', names_to = 'Tinklelio_tipas') %>%
+  na.omit() %>%
+  select(Komplikacija, Tinklelis) %>%
+  table()
+count_table
+
+plot_box <- as.data.frame(count_table) %>%
+  ggplot(aes(Tinklelis, Freq, fill=Komplikacija))+
+  geom_bar(stat='identity', position = position_stack(reverse = TRUE))+
+  labs(title = 'Pasitaikiusios komplikacijos pagal tinklelio panaudojimą',
+       y=NULL,
+       x=NULL,)+
+  scale_x_discrete(labels = c('Tnklelis naudotas',
+                       'Tinklelis nenaudotas'))+
+  scale_fill_manual(values=my_palette,breaks = c('TAIP', 'NE'), labels=c('TAIP', 'NE'))
+plot_box
+
+count_table %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE) %>%
+  .$fisher.ts
+
+
+```
+
+## 13. PALYGINTI KOMPLIKACIJU DAZNI PRIKLAUSOMAI NUO KRUTU PTOZES.
+
+#### Opeuojant dviem etapais:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, output=FALSE}
+count_table <- duomenys_pilni %>%
+  select(Komplikacija = AR_BUVO_APSKRITAI_KOMPLIKACIJA,
+         KRUTU_PTOZE_PRIES_I_ETAPĄ) %>%
+  mutate(I_PT = factor(KRUTU_PTOZE_PRIES_I_ETAPĄ)) %>%
+  select(Komplikacija, I_PT) %>%
+  na.omit() %>%
+  table()
+
+plot_box <- as.data.frame(count_table) %>%
+  ggplot(aes(I_PT, Freq, fill=Komplikacija))+
+  geom_bar(stat='identity', position = position_stack(reverse = TRUE))+
+  labs(title = 'Komplikacijos pagal Ptoze operuojant II etapais',
+       y=NULL,
+       x=NULL,)+
+  scale_x_discrete(labels = c('I','II','III'))+
+  scale_fill_manual(values=my_palette,breaks = c('TAIP', 'NE'), labels=c('TAIP', 'NE'))
+
+plot_box
+```
+
+```{r echo = FALSE}
+count_table %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE)
+```
+
+#### Operuojant vienu etapu
+
+```{r echo=FALSE}
+count_table <- duomenys_pilni %>%
+  select(Komplikacija = AR_BUVO_APSKRITAI_KOMPLIKACIJA,
+         VIENU_ETAPU_OPERUOJANT_PTOZE_PRIESOPERACINE) %>%
+  mutate(PT = factor(VIENU_ETAPU_OPERUOJANT_PTOZE_PRIESOPERACINE)) %>%
+  select(Komplikacija, PT) %>%
+  na.omit() %>%
+  table()
+count_table
+
+plot_box <- as.data.frame(count_table) %>%
+  ggplot(aes(PT, Freq, fill=Komplikacija))+
+  geom_bar(stat='identity', position = position_stack(reverse = TRUE))+
+  labs(title = 'Komplikacijos priklausomai nuo krūtų ptozės,\noperuojant vienmomentiškai',
+       y=NULL,
+       x=NULL,)+
+  scale_x_discrete(labels = c('Ptozės nėra','I laipsnio\nptozė','II laipsnio\nptozė'))+
+  scale_fill_manual(values=my_palette,breaks = c('TAIP', 'NE'), labels=c('TAIP', 'NE'))
+
+plot_box
+
+fisher_exact <- count_table %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE)
+
+count_table %>%
+  fisher.multcomp(p.method = 'none')
+
+table_1vs3 <- matrix(c(18,1,7,4), nrow = 2, byrow = TRUE)
+
+f_test<-fisher.test(table_1vs3)
+f_test$estimate
+
+```
+
+Cia idomi situacija. Kai klausiame ar yra skirtumas tarp grupiu, ji randame (P=0.038). Kai ieskome tarp kuriu grupiu yra skirtumas, t.y. darome testa 3 kartus (lyginame 0 ir I, 0 ir II, i ir II). Siaip darant kelis p testus vienu metu turretume pataisyti p value. Vadinama p value correction for multiple comparisons. Cia nepataisiau, nes pataisius guanasi p\>0,05. Ar nori truputi pasukciauti ir pasilikti sia reiksme prilauso nuo taves. Komplikacijų tikimybė operuojant II lygio ptozę yra maždaug 9 kartus didesnė nei operuojant 0 laipsnio ptozę.
+
+## 14. PALYGINTI KOMPLIKACIJŲ DAŽNĮ, PRIKLAUSOMAI NUO PAŠALINTŲ AUDINIŲ SVORIO
+
+```{r echo=FALSE}
+pivot <- duomenys_pilni %>%
+  select(I_K = I_ETAPO_PASALINTI_AUDINIAI_KAIRE, I_D = I_ETAPO_PASALINTI_AUDINIAI_DESINE, II_K = II_ETAPO_PASALINTI_AUDINIAI_KAIRE, II_D = II_ETAPO_PASALINTI_AUDINIAI_DESINE, V_K = VIENU_ETAPU_OPERUOJANT_PASALINTU_AUDINIU_KAIREJE, V_D = VIENU_ETAPU_OPERUOJANT_PASALINTI_AUDINIAI_DESINEJE, Komplikacija_vienu = AR_BUVO_KOMPLIKACIJA_OPERUOJANT_VIENU_ETAPU, Komplikacija_dviem = AR_BUVO_KOMPLIKACIJA_PO_II_OPERACINIO_ETAPO, Tipas = VIENU_AR_DVIEM_ETAPAIS) %>%
+  filter(!(is.na(I_K)&!is.na(II_K))) %>%
+  filter(!(is.na(II_K)&!is.na(I_K))) %>%
+  filter(!(is.na(I_D)&!is.na(II_D))) %>%
+  filter(!(is.na(II_D)&!is.na(I_D))) %>%
+  mutate(D_K = I_K + II_K, D_D = I_D + II_D) %>%
+  mutate(Komplikacija = ifelse(is.na(Komplikacija_vienu), Komplikacija_dviem, Komplikacija_vienu)) %>%
+  mutate(Komplikacija = ifelse(Komplikacija =='NEBUVO', 'NE', Komplikacija)) %>%
+  select(D_K, D_D, V_K, V_D, Komplikacija, Tipas) %>%
+  mutate(D_Krutis = ifelse(Tipas == 'VIENMOMENTINE',V_D,D_D),
+         K_Krutis = ifelse(Tipas == 'VIENMOMENTINE',V_K,D_K)) %>%
+  select(D_Krutis, K_Krutis, Tipas, Komplikacija) %>%
+  pivot_longer(c(D_Krutis, K_Krutis), names_to = 'Puse', values_to = 'Turis') %>%
+  na.omit() %>%
+  mutate(Komplikacija = ifelse(Komplikacija == 'DESINE' & Puse == 'K_Krutis', 'NE', Komplikacija)) %>% 
+  mutate(Komplikacija = ifelse(Komplikacija != 'NE', 'TAIP', Komplikacija)) %>%
+  select(Komplikacija, Turis)
+  
+```
+
+t-testas (ar turis lemia komplikacijas):
+
+```{r echo = FALSE}
+ttest <- pivot %>%
+  t_test(Turis~Komplikacija)
+ttest
+```
+
+```{r echo = FALSE}
+sample_size <- pivot %>%
+  group_by(Komplikacija) %>%
+  tally()
+```
+
+```{r echo=FALSE}
+bxp <- pivot %>%  
+  ggboxplot(x = 'Komplikacija', y = 'Turis', fill='#60b3e4')+
+  labs(title='Vidutinis pašalintų audinių svoris ir komplikacijos',
+     x=NULL,
+     y='Svoris, gramai')+
+  scale_x_discrete(labels = c('Komplikacijų\nnebuvo',
+                         'Komplikacijų\nbuvo'))+
+  theme_classic()+
+  scale_fill_brewer(palette = "Pastel1")+
+  scale_y_continuous(limits = c(-100, 1800), expand = c(0, 0))+
+  geom_text(data = sample_size,
+            aes(y=0, label = paste('n=', n), vjust = 1))
+  # geom_text(data = sample_size,
+  #           aes(Operacija,Inf, label = paste("n=", n)), 
+  #             position = position_dodge(.9))+
+ttest <- ttest %>%
+  add_xy_position(x='Komplikacija', dodge=0.5) %>%
+  mutate(y.position=1600)
+
+bxp + stat_pvalue_manual(
+  ttest, label='p', tip.length = 0.01)
+```
+
+## 15. PALYGINTI LOVADIENIŲ SKAIČIŲ SU KRŪTŲ PAKĖLIMO TIPU, PO PIRMOJO ETAPO.
+
+```{r echo=FALSE}
+table <- duomenys_pilni %>%
+  select(PSEUDONIMAS,Peksija = `PEKSIJOS_TIPAS/KOJA`, Lovadieniai = I_ETAPO_LOVADIENIAI) %>%
+  na.omit() %>%
+  group_by(Peksija) %>%
+  summarise(
+    mean = round(mean(Lovadieniai),2),
+    sn = round(sd(Lovadieniai),2),
+    sample_size = n()
+  )
+table
+
+bxp <- duomenys_pilni %>%
+  select(PSEUDONIMAS,Peksija = `PEKSIJOS_TIPAS/KOJA`, Lovadieniai = I_ETAPO_LOVADIENIAI) %>%
+  na.omit() %>%
+  group_by(Peksija) %>%
+  ggboxplot(x='Peksija', y='Lovadieniai', order = c("APATINE",'SUPEROMEDIALINE','VIRSUTINE','BENELLI'), fill='Peksija', palette = my_palette)+
+  labs(title='Hospitalizacijos trukmės priklausomybė\nnuo paruošiamosios operacijos metodo.',
+     x=NULL,
+     y='Lovadieniai',
+     fill=NULL)+
+  theme_classic()+
+  theme(legend.position="none")+
+  scale_y_continuous(limits = c(0,10), expand = c(0, 0))+
+  geom_text(data = table,
+            aes(y=0.3, label = paste('n=', sample_size), vjust = 0.1))+
+  scale_x_discrete(labels=c('Apatinė\nkojytė', 'Superomedialinė\nkojytė', 'Viršutinė\nkojytė','Periareoliarinis\nBenelli\npakėlimas'))
+
+print('VARIACIJOS TESTAS:')
+var_test <- duomenys_pilni %>%
+  select(Peksija = `PEKSIJOS_TIPAS/KOJA`, Lovadieniai = I_ETAPO_LOVADIENIAI) %>%
+  mutate(Peksija = factor(Peksija)) %>%
+  na.omit() %>%
+  filter(Peksija != 'BENELLI') %>%
+  levene_test(Lovadieniai~Peksija)
+var_test
+
+print('Equal-variance two-sample T-test:')
+ttest <- duomenys_pilni %>%
+  select(Peksija = `PEKSIJOS_TIPAS/KOJA`, Lovadieniai = I_ETAPO_LOVADIENIAI) %>%
+  na.omit() %>%
+  filter(Peksija != 'BENELLI') %>%
+  t_test(Lovadieniai~Peksija, var.equal = T)
+ttest
+
+ttest <- ttest %>%
+  add_xy_position(x='Peksija', dodge=0.9, step.increase = 0.3)
+
+bxp + stat_pvalue_manual(
+  ttest, label='p', tip.length = 0.01)
+```
+
+## 16. PALYGINTI SN TARP GRUPIŲ.
+
+```{r echo =FALSE}
+summary_table <- duomenys_pilni %>%
+  select(I_K = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_KAIRE`, I_D = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_DESINE`, II_K = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_KAIRE`, II_D = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_DESINE`) %>%
+  mutate(I_max = pmax(I_K, I_D), II_max = pmax(II_K, II_D))%>%
+  select(I_max, II_max) %>%
+  pivot_longer(c(I_max, II_max), names_to = 'Stage', values_to = 'max') %>%
+  na.omit() %>%
+  group_by(Stage) %>%
+  summarise(
+    mean = mean(max),
+    sd = sd(max),
+    n = n()
+  )
+summary_table
+
+ttest <- duomenys_pilni %>%
+  select(I_K = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_KAIRE`, I_D = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_DESINE`, II_K = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_KAIRE`, II_D = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_DESINE`) %>%
+  mutate(I_max = pmax(I_K, I_D), II_max = pmax(II_K, II_D))%>%
+  select(I_max, II_max) %>%
+  pivot_longer(c(I_max, II_max), names_to = 'Stage', values_to = 'max') %>%
+  na.omit() %>%
+  t_test(max~Stage)
+
+print('EQUAAL-VARIANCE TWO-SAMPLE T-testas:')
+ttest['p'] <- 'p<0.001'
+ttest
+
+sample_size <- duomenys_pilni %>%
+  select(I_K = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_KAIRE`, I_D = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_DESINE`, II_K = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_KAIRE`, II_D = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_DESINE`) %>%
+  mutate(I_max = pmax(I_K, I_D), II_max = pmax(II_K, II_D))%>%
+  select(I_max, II_max) %>%
+  pivot_longer(c(I_max, II_max), names_to = 'Stage', values_to = 'max') %>%
+  na.omit() %>%
+  group_by(Stage) %>%
+  tally()
+
+sample_size
+
+bxp <- duomenys_pilni %>%
+  select(I_K = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_KAIRE`, I_D = `VIENU_ETAPU_SN-NAC_PRIES_OPERACIJĄ_DESINE`, II_K = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_KAIRE`, II_D = `I_ETAPO_PRIESOPERACINIAI_SN-NAC_DESINE`) %>%
+  mutate(I_max = pmax(I_K, I_D), II_max = pmax(II_K, II_D))%>%
+  select(I_max, II_max) %>%
+  pivot_longer(c(I_max, II_max), names_to = 'Stage', values_to = 'max') %>%
+  na.omit() %>%
+  group_by(Stage) %>%
+  ggboxplot(x='Stage', y='max', fill='#60b3e4')+
+  labs(title='Operacijos metodikos pasirinkimo\npriklausomybė nuo SN-NAC atstumo.',
+     x=NULL,
+     y='SN-NAC, centimetrai')+
+  theme_classic()+
+  scale_fill_brewer(palette = "Pastel1")+
+  scale_y_continuous(limits = c(10,40), expand = c(0, 0))+
+  scale_x_discrete(labels = c('Su paruošiamąja\noperacija',
+                       'Vienmomentinė'))+
+  geom_text(data = sample_size,
+            aes(y=12, label = paste('n=', n), vjust = 0.1))
+
+ttest <- ttest %>%
+  add_xy_position(x='Stage', dodge=0.9, step.increase = 0.3)
+
+bxp = bxp + stat_pvalue_manual(
+  ttest, label='p', tip.length = 0.01)
+  
+  
+bxp
+
+```
+
+## 17. PALYGINTI PAŠALINTŲ AUDINIŲ KIEKĮ TARP GRUPIŲ.
+
+Duomenys isskirti pagal krutis.
+
+```{r echo = FALSE}
+turis_op = duomenys_pilni %>%
+  select(I_K = I_ETAPO_PASALINTI_AUDINIAI_KAIRE, I_D = I_ETAPO_PASALINTI_AUDINIAI_DESINE, II_K = II_ETAPO_PASALINTI_AUDINIAI_KAIRE, II_D = II_ETAPO_PASALINTI_AUDINIAI_DESINE, V_K = VIENU_ETAPU_OPERUOJANT_PASALINTU_AUDINIU_KAIREJE, V_D = VIENU_ETAPU_OPERUOJANT_PASALINTI_AUDINIAI_DESINEJE, Etapai = VIENU_AR_DVIEM_ETAPAIS) %>%
+  filter(!(is.na(I_K)&!is.na(II_K))) %>%
+  filter(!(is.na(II_K)&!is.na(I_K))) %>%
+  filter(!(is.na(I_D)&!is.na(II_D))) %>%
+  filter(!(is.na(II_D)&!is.na(I_D))) %>%
+  mutate(D_K = I_K + II_K, D_D = I_D + II_D) %>%
+  select(D_K, D_D, V_K, V_D) %>%
+  pivot_longer(c(D_K, D_D, V_K, V_D), names_to = 'Operacija_puse', values_to = 'Turis') %>%
+  na.omit() %>%
+  mutate(Operacijos_tipas = ifelse(Operacija_puse=='D_K' | Operacija_puse=='D_D', 'Dvietape', 'Vienmomente')) %>%
+  select(Operacijos_tipas, Turis)
+  
+summ_data <- turis_op %>% 
+  group_by(Operacijos_tipas) %>%
+  summarise(
+    mean = mean(Turis),
+    sd = sd(Turis),
+    n = n()
+  )
+
+bxp <- turis_op %>%
+  group_by(Operacijos_tipas) %>%
+  ggboxplot(x='Operacijos_tipas', y='Turis', fill = '#60b3e4')+
+  labs(title='Pašalintų liaukos svorių priklausomybė nuo operacijos metodikos',
+     x=NULL,
+     y='Svoris, gramai')+
+  theme_classic()+
+  scale_fill_brewer(palette = "Pastel1")+
+  scale_y_continuous(limits = c(0,1800), expand = c(0, 0))+
+  scale_x_discrete(labels = c('Dviejų etapų,\nn=32',
+                     'Vienmomentinė,\nn=66'))
+
+ttest <- turis_op %>%
+  t_test(Turis~Operacijos_tipas)
+ttest['p'] <- 'p<0.001'
+ttest
+
+ttest <- ttest %>%
+  add_xy_position(x='Operacijos_tipas', dodge=0.9, step.increase = 0.3)
+
+bxp = bxp + stat_pvalue_manual(
+  ttest, label='p', tip.length = 0.01)
+
+bxp
+```
+
+## 18. NUSTATYI OPERACIJOS TRUKMIŲ VIDURKIUS VISAIS ETAPAIS.
+
+```{r echo=FALSE}
+pivot <- duomenys_pilni %>%
+  select(II_OPERACIJOS_ETAPO_TRUKME, VIENU_ETAPU_OPERUOJANT_OPERACIJOS_TRUKME) %>%
+  pivot_longer(c(II_OPERACIJOS_ETAPO_TRUKME, VIENU_ETAPU_OPERUOJANT_OPERACIJOS_TRUKME), names_to = 'Tipas', values_to = 'Trukme') %>%
+  na.omit()
+
+summ_stats <- pivot %>%
+  group_by(Tipas) %>%
+  summarise(
+    mean = mean(Trukme),
+    sd= sd(Trukme),
+    n = n()
+  )
+summ_stats
+
+bxp <- pivot %>%
+  ggboxplot('Tipas', 'Trukme', fill='#60b3e4')+
+  labs(title = 'Profilaktinės mastektomijos su rekonstrukcija trukmė,\npriklausomai ar prieš tai buvo atlikta paruošiamoji operacija',
+       x= NULL,
+       y= 'Valandos')+
+  scale_x_discrete(labels=c('Po paruošiamosios\noperacijos',
+                            'Vienmomentinė'))+
+  theme_classic()+
+  scale_y_continuous(limits = c(0,15), expand = c(0, 0))
+
+ttest <- pivot %>%
+  t_test(Trukme ~ Tipas)
+ttest
+ttest <- ttest %>%
+  add_xy_position(x='Tipas', dodge=0.8, step.increase = 0.3)
+ttest$y.position <- 11.5
+bxp = bxp + stat_pvalue_manual(
+  ttest, label='p', tip.length = 0.01)
+
+bxp
+```
+
+Visu operaciju vidurkis
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+pivot <- duomenys_pilni %>%
+  select(II_OPERACIJOS_ETAPO_TRUKME, VIENU_ETAPU_OPERUOJANT_OPERACIJOS_TRUKME, I_ETAPO_OPERACIJOS_TRUKME) %>%
+  pivot_longer(c(II_OPERACIJOS_ETAPO_TRUKME, VIENU_ETAPU_OPERUOJANT_OPERACIJOS_TRUKME, I_ETAPO_OPERACIJOS_TRUKME), names_to = 'Tipas', values_to = 'Trukme') %>%
+  na.omit()
+
+summ_stats <- pivot %>%
+  group_by(Tipas) %>%
+  summarise(
+    mean = mean(Trukme),
+    sd= sd(Trukme),
+    n = n()
+  )
+summ_stats
+```
+
+## 19. PALYGINTI AR KRŪTŲ PTOZĖ TURĖJO ĮTAKOS CHIRURGINIO METODO PASIRINKIMUI
+
+Count Table:
+
+```{r echo=FALSE}
+count_table <- duomenys_pilni %>%
+  select(II_PT = KRUTU_PTOZE_PRIES_I_ETAPĄ, I_PT = VIENU_ETAPU_OPERUOJANT_PTOZE_PRIESOPERACINE) %>%
+  pivot_longer(c(I_PT, II_PT), values_to = 'Ptoze', names_to = 'Operacija') %>%
+  na.omit() %>%
+  mutate(Operacija = factor(Operacija), Ptoze = factor(Ptoze)) %>%
+  table()
+count_table
+```
+
+Fisherio testas:
+
+```{r echo=FALSE}
+print('Fisherio Exact:')
+count_table %>%
+  CrossTable(prop.r = FALSE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE, fisher = TRUE)
+```
+
+```{r echo=FALSE}
+count_table
+
+```
+
+Iliustracija:
+
+```{r echo= FALSE}
+plot_box <- as.data.frame(count_table) %>%
+  ggplot(aes(Ptoze, Freq, fill=Operacija))+
+  geom_bar(stat='identity')+
+  labs(title = 'Operacijos metodo pasirinkimas,\npriklausomai nuo krūtų ptozės ',
+       y=NULL,
+       x=NULL,
+       fill = NULL)+
+  scale_fill_discrete(labels = c('Vienmomentinė', 'Dviejų etapų'))+
+  scale_fill_manual(values=my_palette)+
+  scale_x_discrete(labels = c('Ptozės nėra','I laipsnio\nptozė','II laipsnio\nptozė', 'III laipsnio\nptozė'))
+  
+plot_box
+```
+
+## 21. PALYGINTI AR TINKLELIO PANAUDOJIMAS PRIKLAUSĖ NUO NAUDOTŲ IMPLANTŲ TŪRIO.
+
+```{r echo=FALSE}
+pivot <- duomenys_pilni %>%
+  select(D_Turis = II_ETAPO_NAUDOTI_IMPLANTAI_TURIS_cc, V_Turis = VIENU_ETAPU_OPERUOTU_IMPLANTU_TURIS, D_Tinklelis = AR_NAUDOTAS_TINKLELIS_II_ETAPO_METU, V_Tinklelis = AR_NAUDOTAS_TINKLELIS_OPERUOJANT_VIENU_ETAPU) %>%
+  pivot_longer(c(D_Turis, V_Turis), names_to = 'Tipas', values_to = 'Turis') %>%
+  drop_na(Turis) %>%
+  mutate(Tinklelis = ifelse(!is.na(D_Tinklelis), D_Tinklelis, V_Tinklelis)) %>%
+  select(Tipas, Tinklelis, Turis)
+
+```
+
+Summary Stats:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+sum_stats <- pivot %>%
+  group_by(Tipas, Tinklelis) %>%
+  summarise(
+    mean = mean(Turis),
+    sd = sd(Turis),
+    n = n()
+  )
+sum_stats
+```
+
+Ar Turis priklauso nuo Operacijos Tipo:
+
+```{r echo=FALSE}
+pivot %>%
+  t_test(Turis ~ Tipas)
+```
+
+Ar Turis priklauso nuo Tinklelio naudojimo:
+
+```{r echo=FALSE}
+pivot %>%
+  t_test(Turis ~ Tinklelis)
+```
+
+ANOVA: Ar Turis priklauso nuo Tinklelio arba Tipo arba ju interakcijos:
+
+```{r echo=FALSE}
+res.aov<-aov(Turis ~ Tipas + Tinklelis + Tipas*Tinklelis, data=pivot)
+summary(res.aov)
+```
+
+Kas yra interakcija? For example, if a researcher is studying how gender (female vs. male) and dieting (Diet A vs. Diet B) influence weight loss, an interaction effect would occur if women using Diet A lost more weight than men using Diet A. Interaction effects contrast with—and may obscure—main effects.
+
+```{r echo=FALSE}
+
+bxp <- pivot %>%
+  group_by(Tipas) %>%
+  ggboxplot(x='Tipas', y='Turis', fill='Tinklelis',
+            palette = my_palette)+
+  labs(title='Tinklelio naudojimas priklausomai nuo operacijos tipo ir implantu turio',
+       x=NULL,
+       y='Turis, cc',
+       color='Tinklelis')+
+  scale_x_discrete(labels = c('Dvietape',
+                           'Vienmomente'))+
+  
+  geom_text(data=sum_stats, 
+            aes(y=50, label = paste("n=", n)), 
+                position = position_dodge2(.9), vjust = 1)+
+  scale_y_continuous(limits = c(0, 800), expand = c(0, 0))+
+  theme_classic()
+
+bxp
+```
+
+summary stats:
+
+```{r echo=FALSE}
+sum_stats <- pivot %>%
+  group_by(Tipas) %>%
+  summarise(
+    mean = mean(Turis),
+    sd = sd(Turis),
+    n = n()
+  )
+sum_stats
+```
+
+t-testas, bet ne įprastas, kuris tikrina ar yra skirtumas, bet šitas tikrina, ar po paruošiamosios didesnis nei po vienmomentinės:
+
+```{r echo = FALSE, output=FALSE}
+ttest <- pivot %>%
+  t_test(Turis ~ Tipas, alternative = 'greater')
+ttest
+```
+
+```{r echo=FALSE}
+
+bxp <- pivot %>%
+  ggboxplot(x='Tipas', y='Turis', fill='#60b3e4')+
+  labs(title='Naudotų implantų tūrių priklausomybė\nnuo pasirinktos chirurginės metodikos.',
+       x=NULL,
+       y='Implantų tūris, cc')+
+  scale_x_discrete(labels = c('Po paruošiamosios operacijos',
+                           'Vienmomentinė'))+
+  
+  geom_text(data=sum_stats, 
+            aes(y=50, label = paste("n=", n)), 
+                position = position_dodge2(.9), vjust = 1)+
+    
+  scale_y_continuous(limits = c(0, 650), expand = c(0, 0))+
+
+  theme_classic()
+
+ttest <- ttest %>%
+  add_xy_position(x='Tipas', dodge=0.8, step.increase = 0.3)
+ttest$y.position <- 600
+bxp = bxp + stat_pvalue_manual(
+  ttest, label='p', tip.length = 0.01)
+
+bxp
+```
+
+Vėlgi čia p reikšmė tikrina, ar po paruošiamosios operacijos naudojami implantai buvo statistikškai didesni nei po vienmomentinės.

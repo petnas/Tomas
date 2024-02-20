@@ -1,0 +1,24 @@
+"0","count_table %>%
+  fisher.multcomp(p.method = 'none')
+"
+"1","
+        Pairwise comparisons using Fisher's exact test for count data
+
+"
+"1","data:  .
+
+"
+"1","       "
+"1"," 0.0:I"
+"1","  0.0:II"
+"1","   I:II"
+"1","
+NE:TAIP"
+"1","     1"
+"1"," 0.04724"
+"1"," 0.1032"
+"1","
+"
+"1","
+P value adjustment method: none
+"

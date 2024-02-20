@@ -1,0 +1,394 @@
+##GGPLOT tutorial
+
+#to NOT include code in the rendered pdf
+#{r echo = FALSE}
+
+library(tidyverse)
+
+theme_set(theme_bw()+
+            theme(panel.grid = element_blank(),
+                  title = element_text(color = 'steelblue',
+                                       face='bold')))
+
+data()
+
+ggplot(data=BOD, 
+       mapping = aes(x=Time,
+                     y=demand))+
+  geom_point(size=5)+
+  geom_line(colour='red')
+
+#####
+
+ggplot(BOD, aes(Time, demand))+
+  geom_point(size=3)+
+  geom_line(colour='red')
+
+#####
+
+View(CO2)
+names(CO2)
+
+CO2 %>% 
+  ggplot(aes(conc, uptake, 
+             colour=Treatment))+
+  geom_point(size=3, alpha=0.5)+
+  geom_smooth(method = lm, se=F)+
+  facet_wrap(~Type)+
+  labs(title = 'Concentration of CO2')+
+  theme_bw()
+
+############
+
+CO2 %>%
+  ggplot(aes(Treatment, uptake))+
+  geom_boxplot()+
+  geom_point(aes(alpha=0.5,
+                 size=conc,
+                 colour=Plant))+
+  facet_wrap(~Type)+
+  coord_flip()+
+  theme_bw()+
+  labs(title="Chilled vs Non-chilled")
+
+############
+
+View(mpg)
+names(mpg)
+
+mpg %>%
+  filter(cty < 25) %>%
+  ggplot(aes(displ, cty))+
+  geom_point(aes(colour = drv,
+                 size = trans), 
+             alpha=0.5)+
+  geom_smooth(method = lm)+
+  facet_wrap(~year, nrow=1)+
+  labs(x='Engine size',
+       y='MPG in the xity',
+       title = 'Fuel efficiency')+
+  theme_bw()
+
+
+#############
+
+mpg %>%
+  filter(hwy < 35) %>%
+  ggplot(aes(x=displ,
+             y=hwy,
+             colour = drv))+
+  geom_point()+
+  geom_smooth(method = lm,
+              se=F)+
+  labs(x='Engine size',
+       y='MPG on the Highway',
+       title="Fuel efficiency")+
+  theme_minimal()
+
+#############
+
+mpg %>%
+  filter(hwy < 35) %>%
+  ggplot(aes(x=displ,
+             y=hwy))+
+  geom_point(aes(colour = drv))+
+  geom_smooth(method = lm,
+              se=F)+
+  labs(x='Engine size',
+       y='MPG on the Highway',
+       title="Fuel efficiency")+
+  theme_minimal()
+
+########### Categorical counts
+
+view(msleep)
+names(msleep)
+
+msleep %>%
+  drop_na(vore) %>%
+  ggplot(aes(vore))+
+  geom_bar(fill='#97B3C6')+
+  theme_bw()+
+  labs(x="Vore",
+       y=NULL,
+       title='Number of animals per diet type')+
+  coord_flip()+
+  #ggsave('tutorial_graph.pdf')+
+  
+
+############ Categorical counts
+
+msleep %>%
+  drop_na(vore) %>%
+  ggplot(aes(fct_infreq(vore)))+
+  geom_bar(fill='#97B3C6')+
+  theme_bw()+
+  labs(x="Vore",
+       y=NULL,
+       title='Number of animals per diet type')+
+  coord_flip()
+  #ggsave('tutorial_graph.pdf')+
+
+############## Histogram
+
+msleep %>%
+  drop_na(awake) %>%
+  ggplot(aes(awake))+
+  geom_histogram(binwidth = 2, fill = '#97B3C6')+
+  theme_bw()+
+  labs(x="Total Sleep",
+       y=NULL,
+       title = "Histogram of total sleep")
+
+############## Histogram
+
+msleep %>%
+  drop_na(awake) %>%
+  ggplot(aes(awake))+
+  geom_histogram(binwidth = 1, fill = '#97B3C6')+
+  theme_bw()+
+  labs(x="Total Sleep",
+       y=NULL,
+       title = "Histogram of total sleep")
+
+############## Scatter Plots
+
+msleep %>%
+  filter(bodywt < 2) %>%
+  ggplot(aes(bodywt,brainwt))+
+  geom_point(aes(color = sleep_total,
+                 size = awake))+
+  geom_smooth(method = lm, se=F)+
+  labs(x='Body Weight',
+       y='Brain Weight',
+       title='Brain and body weight')+
+  theme_minimal()
+
+############### Line Plots
+
+View(Orange)
+names(Orange)
+
+Orange %>%
+  filter(Tree!='2') %>%
+  ggplot(aes(age, circumference))+
+  geom_point()+
+  geom_smooth(method = lm, se=F)+
+  facet_wrap(~Tree)+
+  theme_bw()+
+  labs(title = 'Tree age and circumference')
+
+Orange %>%
+  filter(Tree!='2') %>%
+  ggplot(aes(age, circumference, color=Tree))+
+  geom_point(size=5, alpha=0.3)+
+  geom_line(size=1)+
+  theme_bw()+
+  labs(title = 'Tree age and circumference')
+
+##############  BOXPLOTS
+
+names(msleep)
+
+msleep %>%
+  drop_na(vore) %>%
+  ggplot(aes(vore, sleep_total))+
+  geom_boxplot()+
+  coord_flip()+
+  theme_bw()
+
+############# Density plots
+
+msleep %>%
+  drop_na(vore) %>%
+  ggplot(aes(sleep_total))+
+  geom_density()+
+  facet_wrap(~vore)+
+  theme_bw()
+
+msleep %>%
+  drop_na(vore) %>%
+  #filter(vore == 'herbi' | vore == 'omni') %>%
+  filter(vore %in% c('carni', 'omni')) %>%
+  ggplot(aes(sleep_total, fill=vore))+
+  geom_density(alpha=0.5)+
+  theme_bw()
+
+############# Grouped bar charts
+
+names(starwars)
+
+starwars %>%
+  filter(hair_color %in% c('black', 'brown')) %>%
+  drop_na(sex) %>%
+  ggplot(aes(hair_color, fill=sex))+
+  geom_bar(position = 'dodge',
+           alpha=0.5)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())+
+  labs(title='Gender and Hair Color',
+       x='Hair Color',
+       t='Number')
+
+############## Percentage bar charts
+
+starwars %>%
+  filter(hair_color %in% c('black', 'brown')) %>%
+  drop_na(sex) %>%
+  ggplot(aes(hair_color, fill=sex))+
+  geom_bar(position = 'fill',
+           alpha=0.5)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())+
+  labs(title='Gender and Hair Color',
+       x='Hair Color',
+       t='Number')
+
+############# Stacked bar charts
+
+starwars %>%
+  filter(hair_color %in% c('black', 'brown')) %>%
+  drop_na(sex) %>%
+  ggplot(aes(hair_color, fill=sex))+
+  geom_bar(alpha=0.5)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())+
+  labs(title='Gender and Hair Color',
+       x='Hair Color',
+       t='Number')
+
+############## Bar charts faceted
+
+starwars %>%
+  filter(hair_color %in% c('black', 'brown')) %>%
+  drop_na(sex) %>%
+  ggplot(aes(sex))+
+  geom_bar(aes(fill=sex), alpha=0.5)+
+  facet_wrap(~hair_color)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())+
+  labs(title='Gender and Hair Color',
+       x='Hair Color',
+       t='Number')
+
+
+############### group_by and Whiskers
+
+names(ToothGrowth)
+ToothGrowth %>%
+  filter(supp == 'VC') %>%
+  mutate(dose = as.factor(dose)) %>%
+  group_by(dose) %>%
+  summarise(mean_len = mean(len),
+            sd_len = sd(len)) %>%
+  ggplot(aes(dose, mean_len))+
+  geom_point(size=3, color='blue')+
+  geom_errorbar(aes(x=dose,
+                    ymin = mean_len - sd_len,
+                    ymax = mean_len + sd_len,
+                    width=0.05))+
+  labs(title='Average growth for VC dose')+
+  xlab('Dose')+
+  ylab('Growth')
+
+  
+names(ToothGrowth)
+ToothGrowth %>%
+  filter(supp == 'VC') %>%
+  mutate(dose = as.factor(dose)) %>%
+  group_by(dose) %>%
+  summarise(mean_len = mean(len),
+            sd_len = sd(len)) %>%
+  ggplot(aes(dose, mean_len))+
+  geom_bar(stat='identity', ####interesting
+           fill='skyblue',
+           alpha=0.7)+
+  geom_errorbar(aes(x=dose,
+                    ymin = mean_len - sd_len,
+                    ymax = mean_len + sd_len,
+                    width=0.05))+
+  labs(title='Average growth for VC dose')+
+  xlab('Dose')+
+  ylab('Growth')
+  
+################### Lolipop
+
+?geom_segment
+
+msleep %>%
+  group_by(order) %>%
+  summarise(mean_sleep = mean(sleep_total)) %>%
+  mutate(order=fct_reorder(order,mean_sleep)) %>%
+  ggplot(aes(order, mean_sleep))+
+  geom_point(size=3,
+             color='orange')+
+  geom_segment(aes(x=order,
+                   y=mean(msleep$sleep_total),
+                   xend = order,
+                   yend = mean_sleep),
+               color = 'grey')+
+  geom_hline(yintercept = mean(msleep$sleep_total),
+             size=1)+
+  theme(axis.text.x=element_text(angle=90))+
+  labs(title = 'Average sleep time of mammals by order',
+       x='',
+       y='Hours')
+
+##################### SCATTER
+
+library(car)
+
+head(Salaries)
+
+Salaries %>%
+  ggplot(aes(yrs.since.phd, salary))+
+  geom_jitter(aes(color=rank, shape=discipline))+
+  geom_smooth(method=lm)+
+  facet_wrap(~sex)+
+  labs(title='Salary vs years since PhD',
+       x='Years since PhD',
+       y='Income',
+       color='Position',
+       shape='Research area')
+
+##################### TICKS AND LABELS
+
+Salaries %>%
+  filter(salary<150000) %>%
+  ggplot(aes(x=rank, y=salary, fill=sex)) +
+  geom_boxplot(alpha=0.5)+
+  scale_x_discrete(breaks=c('AsstProf',
+                             "AssocProf",
+                             'Prof'),
+                    labels = c('Assistant\nProfessor',
+                               'Associate\nProfessor',
+                               'Full\nProfessor'))+
+  scale_y_continuous(breaks=c(50000, 100000, 150000, 200000),
+                     labels=c('$50K', '$100K', '$150K',
+                              '$200K'))+
+  labs(title = 'Faculty Salary by Rank and Sex',
+       x = '',
+       y = '',
+       fill='Sex')+
+  theme(legend.position = c(.11,.78))
+
+####################### 
+
+Salaries %>%
+  mutate(discipline = factor(discipline,
+                             levels = c('A', 'B'),
+                             labels = c('Agriculture',
+                                        'Biology'))) %>%
+  ggplot(aes(yrs.since.phd, salary))+
+  geom_point(aes(color=rank), alpha=0.5)+
+  geom_smooth()+
+  facet_grid(sex~discipline)+
+  labs(title='Salary vs years since PhD',
+       x='Number of yers since PhD',
+       y='Current Salary',
+       color='Position')
+  

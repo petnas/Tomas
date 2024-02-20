@@ -1,0 +1,24 @@
+"0","duomenys %>%
+  select(HISTOLOGIJA_PO_I_ETAPO, HISTOLOGIJA_PO_II_ETAPO, VIENU_ETAPU_OPERUOJANT_HISTOLOGIJOS_ATSAKYMAS) %>%
+  gather(column, value, na.rm = T) %>%
+  group_by(column) %>%
+  summarise(
+    NERASTA = sum(value == 'n.y.'),
+    RASTA = sum(value != 'n.y.')
+  ) %>%
+  pivot_longer(cols = -column, names_to = 'Stage', values_to = 'Diagnosis') %>%
+  ggplot(aes(column, Diagnosis, fill=Stage))+
+  geom_bar(stat='identity', alpha=0.7)+
+  labs(title='Histologiškai patvirtinti navikai po operacinių etapų.',
+       x=NULL,
+       y=NULL,
+       fill = NULL)+
+  scale_x_discrete(labels = c('Po I etapo',
+                             'Po II etapo',
+                             'Po vienmomentės\noperacijos'))+
+  scale_fill_discrete(labels=c('Nersta', 'Rasta'))+
+  scale_fill_manual(values=my_palette)
+"
+"2","[38;5;252mScale for [32mfill[38;5;252m is already present.
+Adding another scale for [32mfill[38;5;252m, which will replace the
+existing scale.[39m"
