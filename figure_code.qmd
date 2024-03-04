@@ -43,9 +43,10 @@ duomenys %>%
   scale_y_continuous(limits = c(0, 6), expand = c(0, 0))+
   geom_vline(aes(xintercept=mean(AMZIUS)),
             color="#60b3e4", linetype="dashed", size=1)+
-  geom_text(aes(x=52, y=5.6, label = paste('Vidurkis: ', round(mean(AMZIUS), digits = 2))))+
+  geom_text(aes(x=48, y=5.6, label = paste('Vidurkis: ', round(mean(AMZIUS), digits = 2))))+
   theme_bw()
-  
+
+ggsave('histogram.png', width = 10, height = 5)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -62,6 +63,8 @@ duomenys %>%
   labs(title = 'Mutacijų proporcijos',
        fill = NULL)+
   scale_fill_manual(values=my_palette)
+
+ggsave('mut_prop.png', width = 10, height = 5)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -78,6 +81,7 @@ duomenys %>%
   labs(title = 'Sirgo ar Pirminė',
        fill = NULL)+
   scale_fill_manual(values=my_palette)
+ggsave('istorija_prop.png', width = 10, height = 5)
 ```
 
 ## 1. NAVIKŲ APTIKIMO DAŽNIS PAŠALINTUOSE AUDINIUOSE, PRIKLAUSOMAI NUO TO AR BUVO PASIRINKTA DVIEJŲ OPERACIJŲ METODIKA, AR VIENMOMENTINĖ METODIKA.
@@ -139,7 +143,7 @@ duomenys %>%
   scale_fill_manual(values=my_palette, breaks = c('RASTA', 'NERASTA'), labels=c('Rasta', 'Nerasta'))
   #ggsave(file="pavyzdys.pdf", width=4, height=4, dpi=300)
 
-  
+ggsave('bar_van_op.png', width = 10, height = 5)
 ```
 
 Fisher's exact test rezultatai P\>0.99. Pagalvojau, kad gali rasyti taip: 'Remiantis turimais duomenimis, skirtumo tarp operacijos tipu nerasta.' BET paminek grupiu dydzius ir patarciau uzsiminti, kad butu gerai tureti daugiau atveju.
@@ -169,6 +173,7 @@ plot_box <- as.data.frame(count_table) %>%
                        'Pasikartojęs\nsusirgimas'))+
   scale_fill_manual(values=my_palette, breaks = c('TAIP', 'NE'), labels=c('Rasta', 'Nerasta'))
 plot_box
+ggsave('nav_ist_bar.png', width = 10, height = 5)
 ```
 
 Fisherio Testas:
@@ -515,6 +520,7 @@ stat.test <- stat.test %>%
 
 bxp + stat_pvalue_manual(
   stat.test, label='p', tip.length = 0)
+ggsave('box_komplikacijos_implantai.png', width = 10, height = 5)
 ```
 
 Isskaidyta pagal grupes:
@@ -569,6 +575,7 @@ stat.test <- stat.test %>%
 bxp + stat_pvalue_manual(
   stat.test, label='p', tip.length = 0)
 
+ggsave('komplikacijos_turis_group.png', width = 10, height = 5)
 ```
 
 ```{r echo=FALSE}
@@ -648,6 +655,7 @@ plot_box <- as.data.frame(count_table) %>%
   scale_fill_manual(values=my_palette,breaks = c('TAIP', 'NE'), labels=c('TAIP', 'NE'))
 
 plot_box
+ggsave('bar_komp_II.png', width = 10, height = 5)
 ```
 
 ```{r echo = FALSE}
@@ -753,6 +761,7 @@ ttest <- ttest %>%
 
 bxp + stat_pvalue_manual(
   ttest, label='p', tip.length = 0.01)
+ggsave('svoris_komp_box.png', width = 10, height = 5)
 ```
 
 ## 15. PALYGINTI LOVADIENIŲ SKAIČIŲ SU KRŪTŲ PAKĖLIMO TIPU, PO PIRMOJO ETAPO.
@@ -807,6 +816,8 @@ ttest <- ttest %>%
 
 bxp + stat_pvalue_manual(
   ttest, label='p', tip.length = 0.01)
+
+ggsave('trukme_metodas_box.png', width = 10, height = 5)
 ```
 
 ## 16. PALYGINTI SN TARP GRUPIŲ.
@@ -876,7 +887,7 @@ bxp = bxp + stat_pvalue_manual(
   
   
 bxp
-
+ggsave('metodas_SN_box.png', width = 10, height = 5)
 ```
 
 ## 17. PALYGINTI PAŠALINTŲ AUDINIŲ KIEKĮ TARP GRUPIŲ.
@@ -929,6 +940,8 @@ bxp = bxp + stat_pvalue_manual(
   ttest, label='p', tip.length = 0.01)
 
 bxp
+
+ggsave('svoris_metodas_box.png', width = 10, height = 5)
 ```
 
 ## 18. NUSTATYI OPERACIJOS TRUKMIŲ VIDURKIUS VISAIS ETAPAIS.
@@ -968,6 +981,8 @@ bxp = bxp + stat_pvalue_manual(
   ttest, label='p', tip.length = 0.01)
 
 bxp
+
+ggsave('trukme_metodas_box.png', width = 10, height = 5)
 ```
 
 Visu operaciju vidurkis
@@ -1030,6 +1045,8 @@ plot_box <- as.data.frame(count_table) %>%
   scale_x_discrete(labels = c('Ptozės nėra','I laipsnio\nptozė','II laipsnio\nptozė', 'III laipsnio\nptozė'))
   
 plot_box
+
+ggsave('metodas_ptoze.png', width = 10, height = 5)
 ```
 
 ## 21. PALYGINTI AR TINKLELIO PANAUDOJIMAS PRIKLAUSĖ NUO NAUDOTŲ IMPLANTŲ TŪRIO.
@@ -1100,6 +1117,8 @@ bxp <- pivot %>%
   theme_classic()
 
 bxp
+
+ggsave('operacija_turis_box.png', width = 10, height = 5)
 ```
 
 summary stats:
@@ -1148,6 +1167,8 @@ bxp = bxp + stat_pvalue_manual(
   ttest, label='p', tip.length = 0.01)
 
 bxp
+
+ggsave('turis_metodika_box.png', width = 10, height = 5)
 ```
 
 Vėlgi čia p reikšmė tikrina, ar po paruošiamosios operacijos naudojami implantai buvo statistikškai didesni nei po vienmomentinės.
